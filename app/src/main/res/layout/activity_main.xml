@@ -8,32 +8,42 @@
     tools:context=".MainActivity">
 
 
-    <FrameLayout
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="horizontal">
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnSHow"
+        <LinearLayout
+            android:orientation="vertical"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="show" />
+            android:layout_height="wrap_content">
 
-        <androidx.appcompat.widget.AppCompatTextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:text="111111"
-            android:textColor="#F00" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnShowDrawer"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="end"
-            android:text="drawer" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSHow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="show" />
 
-    </FrameLayout>
+            <androidx.appcompat.widget.AppCompatTextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="111111"
+                android:textColor="#F00" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnShowDrawer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:text="drawer" />
+
+
+            <Space
+                android:layout_width="wrap_content"
+                android:layout_height="1000dp"/>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
     <FrameLayout
         android:id="@+id/bottomSheet"

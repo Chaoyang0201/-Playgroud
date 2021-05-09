@@ -269,9 +269,11 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
 
   @Nullable WeakReference<View> nestedScrollingChildRef;
 
-  @NonNull private final ArrayList<DrawerCallback> callbacks = new ArrayList<>();
+  @NonNull
+  private final ArrayList<DrawerCallback> callbacks = new ArrayList<>();
 
-  @Nullable private VelocityTracker velocityTracker;
+  @Nullable
+  private VelocityTracker velocityTracker;
 
   int activePointerId;
 
@@ -279,17 +281,21 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
 
   boolean touchingScrollingChild;
 
-  @Nullable private Map<View, Integer> importantForAccessibilityMap;
+  @Nullable
+  private Map<View, Integer> importantForAccessibilityMap;
 
   private int expandHalfwayActionId = View.NO_ID;
 
-  public DrawerBehavior() {}
+  private boolean canFullScreenTouchCaptureDrawer = true;
+
+  public DrawerBehavior() {
+  }
 
   public DrawerBehavior(@NonNull Context context, @Nullable AttributeSet attrs) {
     super(context, attrs);
 
     peekWidthGestureInsetBuffer =
-        context.getResources().getDimensionPixelSize(R.dimen.mtrl_min_touch_target_size);
+            context.getResources().getDimensionPixelSize(R.dimen.mtrl_min_touch_target_size);
 
     TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.BottomSheetBehavior_Layout);
     this.shapeThemingEnabled = a.hasValue(R.styleable.BottomSheetBehavior_Layout_shapeAppearance);
@@ -444,14 +450,24 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
     return true;
   }
 
+
+  @Override
+  public boolean blocksInteractionBelow(@NonNull CoordinatorLayout parent, @NonNull V child) {
+    return super.blocksInteractionBelow(parent, child);
+  }
+
   @Override
   public boolean onInterceptTouchEvent(
       @NonNull CoordinatorLayout parent, @NonNull V child, @NonNull MotionEvent event) {
+    Log.d(TAG, "onInterceptTouchEvent: " + MotionEvent.actionToString(event.getActionMasked()));
+
     if (!child.isShown() || !draggable) {
       ignoreEvents = true;
       return false;
     }
     int action = event.getActionMasked();
+    int actionIndex = event.getActionIndex();
+    int pointerId = event.getPointerId(actionIndex);
     // Record the velocity
     if (action == MotionEvent.ACTION_DOWN) {
       reset();
@@ -483,9 +499,10 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
             touchingScrollingChild = true;
           }
         }
+
         ignoreEvents =
             activePointerId == MotionEvent.INVALID_POINTER_ID
-                && !parent.isPointInChildBounds(child, initialX, initialY);
+                && (!parent.isPointInChildBounds(child, initialX, initialY)) && !canFullScreenTouchCaptureDrawer;
         break;
       default: // fall out
     }
@@ -494,11 +511,12 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
         && viewDragHelper.shouldInterceptTouchEvent(event)) {
       return true;
     }
+
     // We have to handle cases that the ViewDragHelper does not capture the bottom sheet because
     // it is not the top most view of its parent. This is not necessary when the touch event is
     // happening over the scrolling content as nested scrolling logic handles that case.
     View scroll = nestedScrollingChildRef != null ? nestedScrollingChildRef.get() : null;
-    return action == MotionEvent.ACTION_MOVE
+    return true || action == MotionEvent.ACTION_MOVE
         && scroll != null
         && !ignoreEvents
         && state != STATE_DRAGGING
@@ -530,12 +548,25 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
     velocityTracker.addMovement(event);
     // The ViewDragHelper tries to capture only the top-most View. We have to explicitly tell it
     // to capture the bottom sheet in case it is not captured and the touch slop is passed.
+
+
     if (viewDragHelper != null && action == MotionEvent.ACTION_MOVE && !ignoreEvents) {
       if (Math.abs(initialX - event.getX()) > viewDragHelper.getTouchSlop()) {
         viewDragHelper.captureChildView(child, event.getPointerId(event.getActionIndex()));
+        return true;
+      }else{
+        return false;
       }
     }
+
+
+
+
     return !ignoreEvents;
+  }
+
+  private boolean isViewCaptured() {
+    return viewDragHelper!=null && viewDragHelper.getCapturedView()!=null;
   }
 
   @Override
@@ -1405,13 +1436,14 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
           }
           if (state == STATE_EXPANDED && activePointerId == pointerId) {
             View scroll = nestedScrollingChildRef != null ? nestedScrollingChildRef.get() : null;
-            if (scroll != null && scroll.canScrollVertically(-1)) {
-              // Let the content scroll up
+            if (scroll != null && scroll.canScrollHorizontally(-1)) {
+              // Let the content scroll horizontal
               return false;
             }
           }
-          return viewRef != null && viewRef.get() == child;
+          return (viewRef != null && viewRef.get() == child);
         }
+
 
         @Override
         public void onViewPositionChanged(
@@ -1840,3 +1872,5 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
     };
   }
 }
+
+
