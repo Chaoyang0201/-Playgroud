@@ -1,0 +1,4 @@
+#Thu Apr 29 01:02:41 CST 2021
+base.0=/Users/huangzhaoyang/workspace/github/pagers/benchmark/build/intermediates/dex/releaseAndroidTest/mergeDexReleaseAndroidTest/classes.dex
+path.0=classes.dex
+renamed.0=classes.dex

@@ -1,0 +1,2 @@
+cool/chaoyang/sample/benchmark/BuildConfig.java
+ cool.chaoyang.sample.benchmark.BuildConfig

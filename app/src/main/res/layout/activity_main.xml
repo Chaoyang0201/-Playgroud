@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/contentRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSHow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="show" />
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="111111"
+            android:textColor="#F00" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnShowDrawer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:text="drawer" />
+
+    </FrameLayout>
+
+    <FrameLayout
+        android:id="@+id/bottomSheet"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="10dp"
+        android:background="#FF0"
+        app:behavior_hideable="true"
+        app:layout_behavior=".behavior.BottomSheetBehavior" />
+
+    <FrameLayout
+        android:id="@+id/rightDrawer"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:background="#F0F"
+        app:behavior_hideable="true"
+        app:layout_behavior=".behavior.DrawerBehavior">
+
+        <TextView
+            android:layout_width="200dp"
+            android:layout_height="wrap_content"
+
+            android:text="10000000" />
+    </FrameLayout>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
+
+
+
+

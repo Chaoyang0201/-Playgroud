@@ -1,0 +1,4 @@
+include ':benchmark'
+include ':mylibrary'
+include ':app'
+rootProject.name = "pagers"
