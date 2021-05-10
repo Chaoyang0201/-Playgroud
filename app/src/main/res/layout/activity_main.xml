@@ -45,14 +45,8 @@
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
-    <FrameLayout
-        android:id="@+id/bottomSheet"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_marginTop="10dp"
-        android:background="#FF0"
-        app:behavior_hideable="true"
-        app:layout_behavior=".behavior.BottomSheetBehavior" />
+
+    <!-- 确保behaviors的顺序，影响到手势处理    -->
 
     <FrameLayout
         android:id="@+id/rightDrawer"
@@ -68,6 +62,16 @@
 
             android:text="10000000" />
     </FrameLayout>
+
+
+    <FrameLayout
+        android:id="@+id/bottomSheet"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="10dp"
+        android:background="#FF0"
+        app:behavior_hideable="true"
+        app:layout_behavior=".behavior.BottomSheetBehavior" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
