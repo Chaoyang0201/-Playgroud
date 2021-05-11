@@ -6,10 +6,9 @@ import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
-import androidx.viewpager2.adapter.FragmentStateAdapter
-import androidx.viewpager2.widget.ViewPager2
+import androidx.fragment.app.FragmentStatePagerAdapter
+import androidx.viewpager.widget.ViewPager
 import cool.chaoyang.sample.mylibrary.factory.pages.IPersonalSpacePage
-import cool.chaoyang.sample.pagers.behavior.BottomSheetBehavior
 import cool.chaoyang.sample.pagers.behavior.DrawerBehavior
 
 class MainActivity : AppCompatActivity() {
@@ -18,22 +17,22 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_pager)
 
 
-        val findViewById = findViewById<ViewPager2>(R.id.vp)
+        val findViewById = findViewById<ViewPager>(R.id.vp)
 
-
-        findViewById.adapter = PagerAdapter(findViewById,this)
+        findViewById.adapter = PagerAdapter(this)
     }
 }
 
-class PagerAdapter(private val vp:ViewPager2,activity:FragmentActivity) : FragmentStateAdapter(activity){
+class PagerAdapter(activity:FragmentActivity) : FragmentStatePagerAdapter(activity.supportFragmentManager){
 
-    override fun getItemCount(): Int {
+
+    override fun getCount(): Int {
         return 2
     }
 
-    override fun createFragment(position: Int): Fragment {
+    override fun getItem(position: Int): Fragment {
         return if (position == 0){
-            FragmentA(vp)
+            FragmentA()
         }else{
             FramentB()
         }
@@ -42,7 +41,7 @@ class PagerAdapter(private val vp:ViewPager2,activity:FragmentActivity) : Fragme
 }
 
 
-class FragmentA(private val vp: ViewPager2): Fragment(R.layout.activity_main){
+class FragmentA : Fragment(R.layout.activity_main){
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -53,11 +52,11 @@ class FragmentA(private val vp: ViewPager2): Fragment(R.layout.activity_main){
         from.addDrawerCallback(object :
             DrawerBehavior.DrawerCallback() {
             override fun onStateChanged(bottomSheet: View, newState: Int) {
-                if (newState == DrawerBehavior.STATE_HIDDEN){
-                    vp.isUserInputEnabled = false
-                }else if(newState == DrawerBehavior.STATE_EXPANDED){
-                    vp.isUserInputEnabled = true
-                }
+//                if (newState == DrawerBehavior.STATE_HIDDEN){
+//                    vp.isUserInputEnabled = false
+//                }else if(newState == DrawerBehavior.STATE_EXPANDED){
+//                    vp.isUserInputEnabled = true
+//                }
             }
 
             override fun onSlide(bottomSheet: View, slideOffset: Float) {
@@ -66,12 +65,11 @@ class FragmentA(private val vp: ViewPager2): Fragment(R.layout.activity_main){
         })
 
         from.state = DrawerBehavior.STATE_HIDDEN
-        vp.isUserInputEnabled = false
     }
 }
 
 
-class FramentB:Fragment(R.layout.activity_main){
+class FramentB:Fragment(R.layout.activity_pager){
 
 }
 

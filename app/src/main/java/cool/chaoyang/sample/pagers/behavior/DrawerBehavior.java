@@ -82,6 +82,7 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
 
 
   private int gestureInsetHorizontal;
+  private boolean resetRequestDisallowInterceptTouchEvent;
 
   /** Callback for monitoring events about bottom sheets. */
   public abstract static class DrawerCallback {
@@ -107,6 +108,22 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
     public abstract void onSlide(@NonNull View bottomSheet, float slideOffset);
   }
 
+  static String stateToString(int state){
+    if (state == STATE_DRAGGING){
+      return "STATE_DRAGGING";
+    }else if (state == STATE_SETTLING){
+      return "STATE_SETTLING";
+    }else if (state == STATE_EXPANDED){
+      return "STATE_EXPANDED";
+    }else if (state == STATE_COLLAPSED){
+      return "STATE_COLLAPSED";
+    }else if (state == STATE_HIDDEN){
+      return "STATE_HIIDEN";
+    }else if (state == STATE_HALF_EXPANDED){
+      return "STATE_HALF_EXPANDED";
+    }
+    return "UNKNOWN";
+  }
   /** The bottom sheet is dragging. */
   public static final int STATE_DRAGGING = 1;
 
@@ -269,6 +286,8 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
 
   @Nullable WeakReference<View> nestedScrollingChildRef;
 
+  @Nullable WeakReference<CoordinatorLayout> coordinatorLayoutRef;
+
   @NonNull
   private final ArrayList<DrawerCallback> callbacks = new ArrayList<>();
 
@@ -377,6 +396,7 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
     super.onAttachedToLayoutParams(layoutParams);
     // These may already be null, but just be safe, explicitly assign them. This lets us know the
     // first time we layout with this behavior by checking (viewRef == null).
+    coordinatorLayoutRef = null;
     viewRef = null;
     viewDragHelper = null;
   }
@@ -385,6 +405,7 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
   public void onDetachedFromLayoutParams() {
     super.onDetachedFromLayoutParams();
     // Release references so we don't run unnecessary codepaths while not attached to a view.
+    coordinatorLayoutRef = null;
     viewRef = null;
     viewDragHelper = null;
   }
@@ -395,6 +416,11 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
     if (ViewCompat.getFitsSystemWindows(parent) && !ViewCompat.getFitsSystemWindows(child)) {
       child.setFitsSystemWindows(true);
     }
+
+    if (coordinatorLayoutRef == null){
+      coordinatorLayoutRef = new WeakReference<>(parent);
+    }
+
 
     if (viewRef == null) {
       // First layout with this behavior.
@@ -467,7 +493,7 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
 
     if (!child.isShown() || !draggable) {
       ignoreEvents = true;
-      parent.getParent().requestDisallowInterceptTouchEvent(false);
+      requestParentDisallowInterceptTouchEvent(false);
       return false;
     }
     int action = event.getActionMasked();
@@ -489,7 +515,8 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
         // Reset the ignore flag
         if (ignoreEvents) {
           ignoreEvents = false;
-          parent.getParent().requestDisallowInterceptTouchEvent(false);
+          //restore after animation settled
+          requestParentDisallowInterceptTouchEvent(false);
           return false;
         }
         break;
@@ -507,18 +534,49 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
         }
 
         ignoreEvents =
-            activePointerId == MotionEvent.INVALID_POINTER_ID
-                && (!parent.isPointInChildBounds(child, initialX, initialY)) && !canFullScreenTouchCaptureDrawer;
+                activePointerId == MotionEvent.INVALID_POINTER_ID
+                        && (!parent.isPointInChildBounds(child, initialX, initialY)) && !canFullScreenTouchCaptureDrawer;
         break;
       default: // fall out
     }
 
-    if (action == MotionEvent.ACTION_MOVE && Math.abs(initialX - event.getX()) > viewDragHelper.getTouchSlop()) {
-      if (initialX - event.getX() > 0 || state != STATE_HIDDEN) {
-        parent.getParent().requestDisallowInterceptTouchEvent(true);
+    float dx = initialX - event.getX();
+
+    if (viewDragHelper != null && action == MotionEvent.ACTION_MOVE && !ignoreEvents) {
+      if (Math.abs(dx) > viewDragHelper.getTouchSlop()) {
+        if (state == STATE_EXPANDED) {
+          if (dx < 0) {
+            requestParentDisallowInterceptTouchEvent(true);
+            viewDragHelper.captureChildView(child, event.getPointerId(event.getActionIndex()));
+            return true;
+          } else {
+            requestParentDisallowInterceptTouchEvent(false);
+            return false;
+          }
+        } else if (state == STATE_HIDDEN) {
+          if (dx > 0||true) {
+            requestParentDisallowInterceptTouchEvent(true);
+            viewDragHelper.captureChildView(child, event.getPointerId(event.getActionIndex()));
+            return true;
+          } else {
+            requestParentDisallowInterceptTouchEvent(false);
+            return false;
+          }
+        }
+
+
+      } else {
+        requestParentDisallowInterceptTouchEvent(false);
+        return false;
+      }
+    }
+
+    if (action == MotionEvent.ACTION_MOVE && Math.abs(dx) > viewDragHelper.getTouchSlop()) {
+      if (dx > 0 || state != STATE_HIDDEN) {
+        requestParentDisallowInterceptTouchEvent(true);
         return true;
       } else {
-        parent.getParent().requestDisallowInterceptTouchEvent(false);
+        requestParentDisallowInterceptTouchEvent(false);
         return false;
       }
     }
@@ -526,7 +584,7 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
     if (!ignoreEvents
             && viewDragHelper != null
             && viewDragHelper.shouldInterceptTouchEvent(event)) {
-      parent.getParent().requestDisallowInterceptTouchEvent(true);
+      requestParentDisallowInterceptTouchEvent(true);
       return true;
     }
 
@@ -541,29 +599,55 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
             && state != STATE_DRAGGING
             && !parent.isPointInChildBounds(scroll, (int) event.getX(), (int) event.getY())
             && viewDragHelper != null
-            && Math.abs(initialX - event.getX()) > viewDragHelper.getTouchSlop();
+            && Math.abs(dx) > viewDragHelper.getTouchSlop();
 
-    parent.getParent().requestDisallowInterceptTouchEvent(b);
+    requestParentDisallowInterceptTouchEvent(b);
     return b;
   }
+
+  private void requestParentDisallowInterceptTouchEvent(boolean b) {
+    if (coordinatorLayoutRef == null){
+      return;
+    }
+    CoordinatorLayout coordinatorLayout = coordinatorLayoutRef.get();
+    if (coordinatorLayout == null){
+      return;
+    }
+    if (state == STATE_SETTLING){
+      Log.d(TAG, "requestParentDisallowInterceptTouchEvent:  state " + stateToString(state) + ",return");
+      resetRequestDisallowInterceptTouchEvent = true;
+    }else if (state == STATE_HIDDEN){
+      Log.d(TAG, "requestParentDisallowInterceptTouchEvent: " + b + "on state HIDDEN");
+      coordinatorLayout.getParent().requestDisallowInterceptTouchEvent(true);
+    }else{
+      Log.d(TAG, "requestParentDisallowInterceptTouchEvent: " + b + " state " + stateToString(state));
+      coordinatorLayout.getParent().requestDisallowInterceptTouchEvent(b);
+    }
+
+  }
+
 
   @Override
   public boolean onTouchEvent(
       @NonNull CoordinatorLayout parent, @NonNull V child, @NonNull MotionEvent event) {
     Log.d(TAG, "onTouchEvent: " + MotionEvent.actionToString(event.getActionMasked()));
-    if (!child.isShown()) {
-      return false;
-    }
+//    if (!child.isShown()) {
+//      return false;
+//    }
     if (event.getActionMasked() == MotionEvent.ACTION_UP || event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
-      parent.getParent().requestDisallowInterceptTouchEvent(false);
+      requestParentDisallowInterceptTouchEvent(false);
+//      return false;
     }
 
     int action = event.getActionMasked();
     if (state == STATE_DRAGGING && action == MotionEvent.ACTION_DOWN) {
       return true;
     }
+
     if (viewDragHelper != null) {
-      viewDragHelper.processTouchEvent(event);
+      if (state != STATE_EXPANDED && state != STATE_HIDDEN) {
+        viewDragHelper.processTouchEvent(event);
+      }
     }
     // Record the velocity
     if (action == MotionEvent.ACTION_DOWN) {
@@ -577,30 +661,15 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
     // to capture the bottom sheet in case it is not captured and the touch slop is passed.
 
 
-    if (viewDragHelper != null && action == MotionEvent.ACTION_MOVE && !ignoreEvents) {
-      if (Math.abs(initialX - event.getX()) > viewDragHelper.getTouchSlop()) {
+    boolean b = !ignoreEvents;
 
-        if (initialX - event.getX() > 0 || state != STATE_HIDDEN) {
-
-          viewDragHelper.captureChildView(child, event.getPointerId(event.getActionIndex()));
-
-          return true;
-        }
-        return false;
-
-      }else{
-        return false;
-      }
-    }
-
-
-
-
-    return !ignoreEvents;
+    return b;
   }
 
-  private boolean isViewCaptured() {
-    return viewDragHelper!=null && viewDragHelper.getCapturedView()!=null;
+  @Override
+  public void onNestedScrollAccepted(@NonNull CoordinatorLayout coordinatorLayout, @NonNull V child, @NonNull View directTargetChild, @NonNull View target, int axes, int type) {
+    Log.d(TAG, "onNestedScrollAccepted() called with: coordinatorLayout = [" + coordinatorLayout + "], child = [" + child + "], directTargetChild = [" + directTargetChild + "], target = [" + target + "], axes = [" + axes + "], type = [" + type + "]");
+    super.onNestedScrollAccepted(coordinatorLayout, child, directTargetChild, target, axes, type);
   }
 
   @Override
@@ -611,6 +680,7 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
       @NonNull View target,
       int axes,
       int type) {
+    Log.d(TAG, "onStartNestedScroll() called with: coordinatorLayout = [" + coordinatorLayout + "], child = [" + child + "], directTargetChild = [" + directTargetChild + "], target = [" + target + "], axes = [" + axes + "], type = [" + type + "]");
     lastNestedScrollDx = 0;
     nestedScrolled = false;
     return (axes & ViewCompat.SCROLL_AXIS_HORIZONTAL) != 0;
@@ -625,6 +695,8 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
       int dy,
       @NonNull int[] consumed,
       int type) {
+    Log.d(TAG, "onNestedPreScroll() called with: coordinatorLayout = [" + coordinatorLayout + "], child = [" + child + "], target = [" + target + "], dx = [" + dx + "], dy = [" + dy + "], consumed = [" + consumed + "], type = [" + type + "]");
+
     if (type == ViewCompat.TYPE_NON_TOUCH) {
       // Ignore fling here. The ViewDragHelper handles it.
       return;
@@ -679,6 +751,7 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
       @NonNull V child,
       @NonNull View target,
       int type) {
+    Log.d(TAG, "onStopNestedScroll() called with: coordinatorLayout = [" + coordinatorLayout + "], child = [" + child + "], target = [" + target + "], type = [" + type + "]");
     if (child.getLeft() == getExpandedOffset()) {
       setStateInternal(STATE_EXPANDED);
       return;
@@ -767,6 +840,8 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
       int dyUnconsumed,
       int type,
       @NonNull int[] consumed) {
+    Log.d(TAG, "onNestedScroll() called with: coordinatorLayout = [" + coordinatorLayout + "], child = [" + child + "], target = [" + target + "], dxConsumed = [" + dxConsumed + "], dyConsumed = [" + dyConsumed + "], dxUnconsumed = [" + dxUnconsumed + "], dyUnconsumed = [" + dyUnconsumed + "], type = [" + type + "], consumed = [" + consumed + "]");
+
     // Overridden to prevent the default consumption of the entire scroll distance.
   }
 
@@ -777,6 +852,8 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
       @NonNull View target,
       float velocityX,
       float velocityY) {
+
+    Log.d(TAG, "onNestedPreFling() called with: coordinatorLayout = [" + coordinatorLayout + "], child = [" + child + "], target = [" + target + "], velocityX = [" + velocityX + "], velocityY = [" + velocityY + "]");
     if (nestedScrollingChildRef != null) {
       return target == nestedScrollingChildRef.get()
           && (state != STATE_EXPANDED
@@ -1091,6 +1168,7 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
     if (state == this.state) {
       return;
     }
+    Log.d(TAG, "setState: " + state);
     if (viewRef == null) {
       // The view is not laid out yet; modify mState and let onLayoutChild handle it later
       if (state == STATE_COLLAPSED
@@ -1133,9 +1211,9 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
     ViewParent parent = child.getParent();
     if (parent != null && parent.isLayoutRequested() && ViewCompat.isAttachedToWindow(child)) {
       final int finalState = state;
-      child.post(() -> settleToStateLeft(child, finalState));
+      child.post(() -> settleToState(child, finalState));
     } else {
-      settleToStateLeft(child, state);
+      settleToState(child, state);
     }
   }
 
@@ -1154,6 +1232,10 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
     if (this.state == state) {
       return;
     }
+    if (state == STATE_COLLAPSED){
+      Thread.dumpStack();
+    }
+    Log.d(TAG, "setStateInternal: " + state);
     this.state = state;
 
     if (viewRef == null) {
@@ -1174,6 +1256,10 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
     updateDrawableForTargetState(state);
     for (int i = 0; i < callbacks.size(); i++) {
       callbacks.get(i).onStateChanged(bottomSheet, state);
+      if (state != STATE_SETTLING && resetRequestDisallowInterceptTouchEvent){
+        resetRequestDisallowInterceptTouchEvent = false;
+        requestParentDisallowInterceptTouchEvent(false);
+      }
     }
     updateAccessibilityActions();
   }
@@ -1357,7 +1443,8 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
     return velocityTracker.getYVelocity(activePointerId);
   }
 
-  void settleToStateLeft(@NonNull View child, int state) {
+  void settleToState(@NonNull View child, int state) {
+    Log.d(TAG, "settleToState: " + state);
     int left;
     if (state == STATE_COLLAPSED) {
       left = collapsedOffset;
@@ -1400,6 +1487,7 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
 //  }
 
   void startSettlingAnimationLeft(View child, int state, int left, boolean settleFromViewDragHelper) {
+    Log.d(TAG, "startSettlingAnimationLeft: " + stateToString(state));
     int top = child.getTop();
 
     boolean startedSettling =
@@ -1535,12 +1623,11 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
               targetState = STATE_HALF_EXPANDED;
             }
           } else if (xvel == 0.f || Math.abs(yvel) > Math.abs(xvel)) {
-            // If the X velocity is 0 or the swipe was mostly vertical indicated by the Y velocity
-            // being greater than the X velocity, settle to the nearest correct height.
+            // settle to the nearest correct position.
             int currentLeft = releasedChild.getLeft();
             if (fitToContents) {
               if (Math.abs(currentLeft - fitToContentsOffset)
-                  < Math.abs(currentLeft - collapsedOffset)) {
+                  <= Math.abs(currentLeft - collapsedOffset)) {
                 left = fitToContentsOffset;
                 targetState = STATE_EXPANDED;
               } else {
