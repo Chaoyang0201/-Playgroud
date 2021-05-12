@@ -18,7 +18,7 @@ class MainActivity : AppCompatActivity() {
 
 
         val findViewById = findViewById<ViewPager>(R.id.vp)
-
+        findViewById.overScrollMode = View.OVER_SCROLL_NEVER
         findViewById.adapter = PagerAdapter(this)
     }
 }
