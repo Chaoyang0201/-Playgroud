@@ -569,6 +569,9 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
         }
 
 
+      }else {
+        requestParentDisallowInterceptTouchEvent(action,false);
+        return false;
       }
     }
 
@@ -584,7 +587,7 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
 
     if (!ignoreEvents
             && viewDragHelper != null
-            && viewDragHelper.shouldInterceptTouchEvent(event)) {
+            && viewDragHelper.shouldInterceptTouchEvent(event) ) {
       requestParentDisallowInterceptTouchEvent(action,true);
       return true;
     }
@@ -616,6 +619,7 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
     }
     if (state == STATE_SETTLING){
       Log.d(TAG, "requestParentDisallowInterceptTouchEvent:  state " + stateToString(state) + ",return");
+      coordinatorLayout.getParent().requestDisallowInterceptTouchEvent(true);
       resetRequestDisallowInterceptTouchEvent = b;
     }else if (state == STATE_HIDDEN){
       Log.d(TAG, "requestParentDisallowInterceptTouchEvent: " + b + "on state HIDDEN");
@@ -625,6 +629,8 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
       if (!b) {
         Thread.dumpStack();
       }
+
+
       coordinatorLayout.getParent().requestDisallowInterceptTouchEvent(b);
     }
 
@@ -1318,6 +1324,13 @@ public class DrawerBehavior<V extends View> extends CoordinatorLayout.Behavior<V
 
   private void reset() {
     activePointerId = ViewDragHelper.INVALID_POINTER;
+
+    if (viewDragHelper != null){
+      if (state!=STATE_DRAGGING && viewDragHelper.getViewDragState() == ViewDragHelper.STATE_DRAGGING) {
+        viewDragHelper.abort();
+      }
+    }
+
     if (velocityTracker != null) {
       velocityTracker.recycle();
       velocityTracker = null;
